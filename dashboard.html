@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PermitGuard — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500,600;1,400&family=Source+Serif+4:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#161d2b; --paper:#f7f2e6; --paper-card:#fffdf8;
+    --brass:#96702f; --brass-deep:#6e4f1f; --rule:#cbbfa0; --muted:#6f6858;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; background:var(--paper); color:var(--ink);
+    font-family:'Source Serif 4', Georgia, serif;
+  }
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 22px; border-bottom:1px solid var(--rule); background:var(--paper-card);
+  }
+  .brand{display:flex; align-items:center; gap:10px;}
+  .seal{
+    width:34px; height:34px; border-radius:50%; border:1.5px solid var(--brass);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Cormorant Garamond', serif; font-size:13px; color:var(--brass-deep);
+  }
+  .brand-name{font-family:'Cormorant Garamond', serif; font-weight:600; font-size:19px;}
+  #signOut{
+    background:none; border:1px solid var(--ink); color:var(--ink);
+    padding:7px 16px; font-family:'Source Serif 4', serif; font-size:13.5px; cursor:pointer;
+  }
+  main{max-width:520px; margin:0 auto; padding:50px 22px;}
+  h1{font-family:'Cormorant Garamond', serif; font-weight:500; font-style:italic; font-size:26px; margin:0 0 6px;}
+  p.sub{color:var(--muted); font-size:15px; margin:0 0 30px;}
+  .panel{
+    background:var(--paper-card); border:1px solid var(--rule); padding:26px; position:relative;
+  }
+  .panel::before{content:""; position:absolute; inset:6px; border:1px solid var(--rule); pointer-events:none;}
+  .row{display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--rule); font-size:14.5px;}
+  .row:last-child{border-bottom:none;}
+  .row .label{color:var(--muted);}
+  .empty{
+    margin-top:30px; text-align:center; color:var(--muted); font-size:14.5px; font-style:italic;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="seal">PG</div>
+    <div class="brand-name">PermitGuard</div>
+  </div>
+  <button id="signOut">Sign out</button>
+</header>
+
+<main>
+  <h1>Your workspace</h1>
+  <p class="sub">Registered under <span id="companyName">…</span></p>
+
+  <div class="panel">
+    <div class="row"><span class="label">Signed in as</span><span id="userEmail">…</span></div>
+    <div class="row"><span class="label">Active permits</span><span>0</span></div>
+    <div class="row"><span class="label">Expiring soon</span><span>0</span></div>
+  </div>
+
+  <p class="empty">No projects yet. Project and permit tracking arrives in the next build phase.</p>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL = "https://ocaupscyktxnvjxohuro.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9jYXVwc2N5a3R4bnZqeG9odXJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0NjUxNjUsImV4cCI6MjEwNjA0MTE2NX0.ts2-U8Iyauj4T3qDlgoLD20HnregnMnU0M2_1oKZdvo";
+
+  let sb;
+  try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); } catch(e){}
+
+  (async () => {
+    if (!sb) return;
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session){ window.location.href = 'index.html'; return; }
+
+    document.getElementById('userEmail').textContent = session.user.email;
+
+    const { data: profile } = await sb
+      .from('profiles')
+      .select('company_id, companies ( name )')
+      .eq('id', session.user.id)
+      .single();
+
+    if (!profile || !profile.company_id){
+      window.location.href = 'company.html';
+      return;
+    }
+
+    document.getElementById('companyName').textContent = profile.companies?.name || '—';
+  })();
+
+  document.getElementById('signOut').addEventListener('click', async () => {
+    if (!sb) return;
+    await sb.auth.signOut();
+    window.location.href = 'index.html';
+  });
+</script>
+
+</body>
+</html>
