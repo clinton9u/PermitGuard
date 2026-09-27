@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PermitGuard — Project</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500,600;1,400&family=Source+Serif+4:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#161d2b; --paper:#f7f2e6; --paper-card:#fffdf8;
+    --brass:#96702f; --brass-deep:#6e4f1f; --rule:#cbbfa0; --muted:#6f6858;
+    --error:#7a2e22; --error-bg:#f6e9e5; --ok:#33533a; --ok-bg:#e9f0e6;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; background:var(--paper); color:var(--ink);
+    font-family:'Source Serif 4', Georgia, serif;
+  }
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 22px; border-bottom:1px solid var(--rule); background:var(--paper-card);
+  }
+  .brand{display:flex; align-items:center; gap:10px; cursor:pointer;}
+  .seal{
+    width:34px; height:34px; border-radius:50%; border:1.5px solid var(--brass);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Cormorant Garamond', serif; font-size:13px; color:var(--brass-deep);
+  }
+  .brand-name{font-family:'Cormorant Garamond', serif; font-weight:600; font-size:19px;}
+  #backBtn{
+    background:none; border:1px solid var(--ink); color:var(--ink);
+    padding:7px 16px; font-family:'Source Serif 4', serif; font-size:13.5px; cursor:pointer;
+  }
+  main{max-width:520px; margin:0 auto; padding:50px 22px;}
+  h1{font-family:'Cormorant Garamond', serif; font-weight:500; font-style:italic; font-size:26px; margin:0 0 6px;}
+  p.sub{color:var(--muted); font-size:15px; margin:0 0 30px;}
+
+  .upload-panel{
+    background:var(--paper-card); border:1px solid var(--rule); padding:26px; position:relative; margin-bottom:36px;
+  }
+  .upload-panel::before{content:""; position:absolute; inset:6px; border:1px solid var(--rule); pointer-events:none;}
+  .upload-panel label{display:block; font-size:12.5px; color:var(--muted); margin-bottom:8px;}
+  input[type=file]{
+    width:100%; font-size:14px; font-family:'Source Serif 4', serif; color:var(--ink); margin-bottom:14px;
+  }
+  button.submit{
+    padding:11px 20px; background:var(--ink); color:var(--paper); border:1px solid var(--ink);
+    font-size:14.5px; letter-spacing:0.02em; cursor:pointer;
+  }
+  button.submit:disabled{opacity:0.5; cursor:default;}
+  .msg{margin-top:14px; font-size:13.5px; padding:9px 11px; display:none;}
+  .msg.error{display:block; background:var(--error-bg); color:var(--error);}
+  .msg.ok{display:block; background:var(--ok-bg); color:var(--ok);}
+
+  .section-title{
+    font-family:'Cormorant Garamond', serif; font-style:italic; font-weight:500;
+    font-size:19px; margin:0 0 14px;
+  }
+  .permit-list{list-style:none; margin:0; padding:0;}
+  .permit-list li{
+    padding:14px 0; border-bottom:1px solid var(--rule);
+    display:flex; justify-content:space-between; align-items:center; font-size:15px;
+  }
+  .permit-list li:last-child{border-bottom:none;}
+  .permit-list .fname{color:var(--ink); font-weight:600;}
+  .permit-list .fmeta{color:var(--muted); font-size:12.5px; margin-top:2px;}
+  .permit-list .left{display:flex; flex-direction:column;}
+  .badge{
+    font-size:11.5px; letter-spacing:0.03em; padding:4px 10px; border-radius:2px; white-space:nowrap;
+  }
+  .badge.active{background:#e9f0e6; color:#33533a;}
+  .badge.expiring_soon{background:#f7ecd8; color:#8a6a1f;}
+  .badge.expired{background:#f6e9e5; color:#7a2e22;}
+  .badge.missing_information{background:#e9e6e0; color:#6f6858;}
+  .badge.processing{background:#e6ecf2; color:#3a5570;}
+  .empty{
+    margin-top:16px; text-align:center; color:var(--muted); font-size:14.5px; font-style:italic;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand" id="homeLink">
+    <div class="seal">PG</div>
+    <div class="brand-name">PermitGuard</div>
+  </div>
+  <button id="backBtn">Back to workspace</button>
+</header>
+
+<main>
+  <h1 id="projectName">Loading…</h1>
+  <p class="sub">Permits and documents for this project</p>
+
+  <div class="upload-panel">
+    <label>Upload a permit or document</label>
+    <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg">
+    <button class="submit" id="uploadBtn">Upload</button>
+    <div id="uploadMsg" class="msg"></div>
+  </div>
+
+  <div class="section-title">Documents on file</div>
+  <ul class="permit-list" id="permitList"></ul>
+  <p class="empty" id="emptyState">No documents uploaded yet.</p>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL = "https://ocaupscyktxnvjxohuro.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9jYXVwc2N5a3R4bnZqeG9odXJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0NjUxNjUsImV4cCI6MjEwNjA0MTE2NX0.ts2-U8Iyauj4T3qDlgoLD20HnregnMnU0M2_1oKZdvo";
+
+  let sb;
+  let companyId = null;
+  const params = new URLSearchParams(window.location.search);
+  const projectId = params.get('id');
+
+  try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); } catch(e){}
+
+  document.getElementById('homeLink').addEventListener('click', () => window.location.href = 'dashboard.html');
+  document.getElementById('backBtn').addEventListener('click', () => window.location.href = 'dashboard.html');
+
+  const statusLabels = {
+    active: 'Active',
+    expiring_soon: 'Expiring soon',
+    expired: 'Expired',
+    missing_information: 'Missing info',
+    processing: 'Reading…'
+  };
+
+  function renderPermits(permits){
+    const list = document.getElementById('permitList');
+    const empty = document.getElementById('emptyState');
+    list.innerHTML = '';
+    if (!permits || permits.length === 0){ empty.style.display = 'block'; return; }
+    empty.style.display = 'none';
+    permits.forEach(p => {
+      const li = document.createElement('li');
+      const date = new Date(p.created_at).toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' });
+      const status = p.status || 'processing';
+      const badgeLabel = statusLabels[status] || status;
+      let metaText = 'Uploaded ' + date;
+      if (p.expiry_date) metaText += ' · Expires ' + p.expiry_date;
+      if (p.permit_number) metaText += ' · #' + p.permit_number;
+      li.innerHTML = `
+        <div class="left">
+          <span class="fname">${p.file_name}</span>
+          <span class="fmeta">${metaText}</span>
+        </div>
+        <span class="badge ${status}">${badgeLabel}</span>`;
+      list.appendChild(li);
+    });
+  }
+
+  async function loadPermits(){
+    const { data, error } = await sb
+      .from('permits')
+      .select('id, file_name, created_at, status, expiry_date, permit_number')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false });
+    if (!error) renderPermits(data);
+  }
+
+  (async () => {
+    if (!sb || !projectId){ window.location.href = 'dashboard.html'; return; }
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session){ window.location.href = 'index.html'; return; }
+
+    const { data: profile } = await sb
+      .from('profiles')
+      .select('company_id')
+      .eq('id', session.user.id)
+      .single();
+
+    if (!profile || !profile.company_id){ window.location.href = 'company.html'; return; }
+    companyId = profile.company_id;
+
+    const { data: project, error } = await sb
+      .from('projects')
+      .select('name')
+      .eq('id', projectId)
+      .single();
+
+    if (error || !project){ window.location.href = 'dashboard.html'; return; }
+
+    document.getElementById('projectName').textContent = project.name;
+    loadPermits();
+  })();
+
+  document.getElementById('uploadBtn').addEventListener('click', async () => {
+    const fileInput = document.getElementById('fileInput');
+    const msg = document.getElementById('uploadMsg');
+    const file = fileInput.files[0];
+
+    if (!file){ msg.textContent = 'Choose a file first.'; msg.className = 'msg error'; return; }
+
+    const btn = document.getElementById('uploadBtn');
+    btn.disabled = true;
+    btn.textContent = 'Uploading…';
+
+    const filePath = `${companyId}/${projectId}/${Date.now()}_${file.name}`;
+    const newPermitId = crypto.randomUUID();
+
+    const { error: uploadError } = await sb.storage
+      .from('permits')
+      .upload(filePath, file);
+
+    if (uploadError){
+      msg.textContent = uploadError.message;
+      msg.className = 'msg error';
+      btn.disabled = false;
+      btn.textContent = 'Upload';
+      return;
+    }
+
+    const { error: dbError } = await sb
+      .from('permits')
+      .insert({
+        id: newPermitId,
+        project_id: projectId,
+        company_id: companyId,
+        file_path: filePath,
+        file_name: file.name,
+        status: 'processing'
+      });
+
+    btn.disabled = false;
+    btn.textContent = 'Upload';
+
+    if (dbError){
+      msg.textContent = dbError.message;
+      msg.className = 'msg error';
+      return;
+    }
+
+    msg.textContent = 'Uploaded — reading document…';
+    msg.className = 'msg ok';
+    fileInput.value = '';
+    loadPermits();
+
+    // Ask the Edge Function to read the document and fill in the details
+    try {
+      const { data: fnData, error: fnError } = await sb.functions.invoke('extract-permit', { body: { permit_id: newPermitId } });
+      if (fnError){
+        msg.textContent = 'Extraction failed: ' + fnError.message;
+        msg.className = 'msg error';
+        loadPermits();
+        return;
+      }
+    } catch (e){
+      msg.textContent = 'Extraction failed: ' + String(e);
+      msg.className = 'msg error';
+      loadPermits();
+      return;
+    }
+    msg.textContent = 'Uploaded and read.';
+    loadPermits();
+  });
+</script>
+
+</body>
+</html>
